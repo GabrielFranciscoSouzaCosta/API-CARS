@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 use App\Models\Cars;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Validator;
 
 class CarsController extends Controller
 {
@@ -17,29 +19,115 @@ class CarsController extends Controller
     public function getAll()
     {
         $cars = $this->model->all();
-        return response()->json($cars);
+        
+        try{
+            if (count($cars) > 0)
+            {
+                return response()->json($cars, Response::HTTP_OK);
+            }
+            else
+            {
+                return response()->json([], Response::HTTP_OK);
+            }
+        }
+        catch (QueryException $exception)
+        {
+            return response()->json(['error'=> 'erro de conexao com o banco de dados'], Response:: HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
     
     public function get($id)
     {
         $car = $this->model->find($id);
-        return response()->json($car);
+        
+        try
+        {
+            if($car)
+            {
+                return response()->json($car, Response::HTTP_OK);
+            }
+            else
+            {
+                return response()->json(null, Response::HTTP_OK);
+            }
+        }
+        catch (QueryException $exception)
+        {
+            return response()->json(['error'=> 'erro de conexao com o banco de dados'], Response:: HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     public function store(Request $request)
     {
-        $car = $this->model->create($request->all());
-        return response()->json($car);
+        
+        $validator = Validator::Make(
+            $request->all(),
+            [
+                'name'          => 'required | max:80',
+                'description'   => 'required',
+                'model'         => 'required | max:10 | min:2',
+                'date'          => 'required | date_format: "Y-m-d"'
+            ]
+        );
+
+        if ($validator->fails())
+        {
+            return response()->json( $validator->errors(), Response::HTTP_BAD_REQUEST);
+        }
+        else
+        {
+
+            try
+            {
+                $car = $this->model->create($request->all());
+                return response()->json($car, Response::HTTP_CREATED);         
+            }
+            catch (QueryException $exception)
+            {
+                return response()->json(['error'=> 'erro de conexao com o banco de dados'], Response:: HTTP_INTERNAL_SERVER_ERROR);    
+            }
+        }
     }
 
     public function update($id, Request $request)
     {
-        $car = $this->model->find($id)->update($request->all());
-        return response()->json($car);
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'name'          => 'required | max:80',
+                'description'   => 'required',
+                'model'         => 'required | max:10 | min:2',
+                'date'          => 'required | date_format: "Y-m-d"'
+            ]
+        );
+        if($validator->fails())
+        {
+            return response()->json( $validator->errors(), Response::HTTP_BAD_REQUEST );
+        }
+        else
+        {
+
+            try 
+            {
+                $car = $this->model->find($id)->update($request->all());
+                return response()->json($car, Response::HTTP_OK);
+            }
+            catch (QueryException $exception)
+            {
+                return response()->json(['error'=> 'erro de conexao com o banco de dados'], Response:: HTTP_INTERNAL_SERVER_ERROR); 
+            }
+        }
     }
     public function destroy($id)
     {
-        $car = $this->model->find($id)->delete();
-        return response()->json(null);
+        try
+        {
+            $car = $this->model->find($id)->delete();
+            return response()->json(null, Response::HTTP_OK);
+        } 
+        catch (QueryException $exception)
+        {
+            return response()->json(['error'=> 'erro de conexao com o banco de dados'], Response:: HTTP_INTERNAL_SERVER_ERROR);   
+        }
     }
 }
